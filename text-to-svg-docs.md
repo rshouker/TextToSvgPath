@@ -24,15 +24,20 @@ This is a web-based tool that converts text into SVG paths using actual font out
 
 ### 3. Text-to-Path Conversion
 ```javascript
-function updatePath()
+function renderSVG()
 ```
 Main conversion pipeline:
 1. Gets text and styling parameters from UI
-2. Applies bidirectional text processing using `bidi-js`
-3. Generates SVG paths character by character using OpenType.js and the webfont
-4. Combines into single path element
-5. Renders both as SVG path and as SVG `<text>` for visual comparison (using the same font and coordinates)
+2. Applies bidirectional text processing using `bidi-js` to create visual order mapping
+3. Calculates precise character positions using `calculateCharacterPositions()`
+4. Renders either SVG paths or individual text characters using identical positioning
+5. Both display modes use the same character placement for perfect alignment
 6. All geometry is in user units (px), which are 1:1 with mm
+
+#### Core Functions:
+- `calculateCharacterPositions()` - Calculates x,y positions for each character based on visual order
+- `renderSVGPath()` - Generates SVG path data using calculated positions
+- `renderTextCharacters()` - Generates individual `<text>` elements at exact same positions
 
 ### 4. Why This Approach?
 - **Physical accuracy:** Ensures the SVG output is the correct real-world size for laser cutting, CNC, and print workflows.
@@ -41,7 +46,9 @@ Main conversion pipeline:
 - **No font dependency:** Output SVGs work without fonts installed on the target system.
 
 ### 5. Output Formats
-- **Visual:** Live SVG preview with stroke/fill
+- **Visual:** Live SVG preview with stroke/fill in two modes:
+  - **Text Characters:** Individual `<text>` elements positioned precisely
+  - **SVG Path:** Vector path outlines with identical character positioning
 - **Code:** Formatted SVG path data in textarea
 - **Download:** Complete SVG file with XML declaration, width/height in mm, and all geometry in user units (px)
 
@@ -66,13 +73,24 @@ Main conversion pipeline:
 ```
 
 ### SVG Output Example
+**SVG Path Mode:**
 ```xml
 <svg width="1000mm" height="300mm" viewBox="0 0 1000 300">
-  <path d="..." fill="#333" stroke="#000" stroke-width="0.5"/>
-  <text x="..." y="..." font-family="ArialWeb" font-size="30" ...>Hello</text>
+  <path d="M10,36L10,36Q10,36..." fill="#333" stroke="#000" stroke-width="0.5"/>
+</svg>
+```
+
+**Text Characters Mode:**
+```xml
+<svg width="1000mm" height="300mm" viewBox="0 0 1000 300">
+  <text x="0" y="36" font-family="ArialWeb" font-size="30" fill="#333" stroke="#000" stroke-width="0.5">H</text>
+  <text x="18.5" y="36" font-family="ArialWeb" font-size="30" fill="#333" stroke="#000" stroke-width="0.5">e</text>
+  <text x="35.2" y="36" font-family="ArialWeb" font-size="30" fill="#333" stroke="#000" stroke-width="0.5">l</text>
+  <!-- ... individual characters at precise positions ... -->
 </svg>
 ```
 - All coordinates, font sizes, and stroke widths are in px (user units), which map 1:1 to mm.
+- Both modes use identical character positioning for perfect alignment.
 
 ## Key Features
 - **No font dependency:** Output SVGs work without fonts installed
@@ -137,7 +155,10 @@ For robust bidirectional text support, this tool uses the full Unicode Bidirecti
 ## API Reference
 
 ### Main Functions
-- `updatePath()` - Generate SVG from current settings using the bundled webfont
+- `renderSVG()` - Generate SVG from current settings using the bundled webfont
+- `calculateCharacterPositions()` - Calculate precise x,y positions for each character
+- `renderSVGPath()` - Generate SVG path data from character positions
+- `renderTextCharacters()` - Generate individual text elements from character positions
 - `updateCodeOutput()` - Format SVG for display
 - `copySVGCode()` - Copy to clipboard
 - `downloadSVG()` - Save as file
