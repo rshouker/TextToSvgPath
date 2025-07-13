@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Text to SVG Path Converter</title>
+  <link rel="stylesheet" href="arial-webfont.woff">
+  <style>
+    body { font-family: Arial, sans-serif; background: #fafbfa; margin: 0; }
+    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+    h1 { text-align: center; margin-top: 24px; }
+    h2 { text-align: center; color: #555; font-weight: 400; margin-top: 0; }
+    .controls { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px; margin-bottom: 24px; display: flex; flex-wrap: wrap; gap: 24px; justify-content: space-between; }
+    .control-group { display: flex; flex-direction: column; min-width: 180px; flex: 1; }
+    .control-group label { font-weight: 600; margin-bottom: 4px; }
+    .control-group input[type="text"] { padding: 6px 8px; font-size: 1.1em; border: 2px solid #2d5547; border-radius: 6px; }
+    .control-group input[type="color"] { width: 40px; height: 32px; border: none; background: none; }
+    .control-group input[type="range"] { width: 100%; }
+    .control-group select { padding: 4px 8px; font-size: 1em; border-radius: 4px; }
+    .slider-value { font-size: 0.95em; color: #444; margin-top: 2px; }
+    .svg-preview-area { border: 2px dashed #ccc; border-radius: 8px; background: #fff; min-height: 320px; margin-top: 12px; padding: 16px; display: flex; justify-content: center; align-items: center; }
+    .svg-preview-area svg { display: block; margin: 0 auto; background: #fff; }
+  </style>
+  <style>
+    @font-face {
+      font-family: 'ArialWeb';
+      src: url('arial-webfont.woff') format('woff');
+      font-weight: normal;
+      font-style: normal;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Text to SVG Path Converter</h1>
+    <h2>Convert text to actual SVG paths using OpenType.js and Arial Web Font</h2>
+    <form class="controls" id="controls" onsubmit="return false;">
+      <div class="control-group">
+        <label for="text-input">Text:</label>
+        <input type="text" id="text-input" value="" autocomplete="off" />
+      </div>
+      <div class="control-group">
+        <label for="font-size">Font Size:</label>
+        <input type="range" id="font-size" min="10" max="120" value="30" />
+        <div class="slider-value" id="font-size-value">30px (30mm)</div>
+      </div>
+      <div class="control-group">
+        <label for="fill-color">Fill Color:</label>
+        <input type="color" id="fill-color" value="#5eb3b3" />
+      </div>
+      <div class="control-group">
+        <label for="stroke-color">Stroke Color:</label>
+        <input type="color" id="stroke-color" value="#000000" />
+      </div>
+      <div class="control-group">
+        <label for="stroke-width">Stroke Width:</label>
+        <input type="range" id="stroke-width" min="0.1" max="5" step="0.1" value="0.5" />
+        <div class="slider-value" id="stroke-width-value">0.5px (0.5mm)</div>
+      </div>
+      <div class="control-group">
+        <label for="letter-spacing">Letter Spacing:</label>
+        <input type="range" id="letter-spacing" min="-5" max="20" step="0.1" value="0" />
+        <div class="slider-value" id="letter-spacing-value">0</div>
+      </div>
+      <div class="control-group">
+        <label for="text-direction">Text Direction:</label>
+        <select id="text-direction">
+          <option value="ltr">Left to Right (LTR)</option>
+          <option value="rtl">Right to Left (RTL)</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label for="display-mode">Display Mode:</label>
+        <select id="display-mode">
+          <option value="text">Text Characters</option>
+          <option value="svg">SVG Path</option>
+        </select>
+      </div>
+      <div class="control-group" style="align-self: flex-end;">
+        <button id="render-btn" type="button" style="padding: 10px 24px; font-size: 1.1em; background: #2d5547; color: #fff; border: none; border-radius: 6px; cursor: pointer;">Render</button>
+      </div>
+    </form>
+    <div class="svg-preview-area" id="svg-preview-area">
+      <!-- SVG output will be rendered here -->
+    </div>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+  <script src="lib/bidi.min.js"></script>
+  <script src="text-to-path-converter.js"></script>
+</body>
+</html> 

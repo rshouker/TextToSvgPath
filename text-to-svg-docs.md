@@ -1,12 +1,12 @@
 # Text to SVG Path Converter - Technical Documentation
 
 ## Overview
-This is a web-based tool that converts text into SVG paths using actual font outlines. It supports bidirectional text (RTL/LTR), custom fonts (now via bundled webfont), and various styling options. The generated paths are true vector outlines, not text elements, making them font-independent and suitable for precision applications like laser cutting.
+This is a web-based tool that converts text into SVG paths using actual font outlines. It supports bidirectional text (RTL/LTR) using the industry-standard `bidi-js` library, custom fonts (now via bundled webfont), and various styling options. The generated paths are true vector outlines, not text elements, making them font-independent and suitable for precision applications like laser cutting.
 
 ## Core Technologies
 - **OpenType.js** (v1.3.4) - Parses font files and extracts glyph outlines as bezier curves
 - **D3.js** (v7.8.5) - Handles SVG DOM manipulation and calculations
-- **SimpleBiDi** - Custom lightweight bidirectional text algorithm (included inline)
+- **bidi-js** - Full Unicode Bidirectional Algorithm (UAX#9) for robust RTL/LTR text support
 - **Webfont Integration** - Uses a bundled WOFF font (ArialWeb) for both SVG path and text rendering
 
 ## Key Components
@@ -28,7 +28,7 @@ function updatePath()
 ```
 Main conversion pipeline:
 1. Gets text and styling parameters from UI
-2. Applies bidirectional text processing
+2. Applies bidirectional text processing using `bidi-js`
 3. Generates SVG paths character by character using OpenType.js and the webfont
 4. Combines into single path element
 5. Renders both as SVG path and as SVG `<text>` for visual comparison (using the same font and coordinates)
@@ -51,6 +51,7 @@ Main conversion pipeline:
 ```html
 <script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bidi-js@1.1.2/dist/bidi.min.js"></script>
 <link rel="stylesheet" href="arial-webfont.woff">
 ```
 
@@ -77,7 +78,7 @@ Main conversion pipeline:
 - **No font dependency:** Output SVGs work without fonts installed
 - **Physical units:** 1 SVG unit = 1 mm for laser/CNC/print
 - **Unicode support:** Handles any characters the font supports
-- **Bidirectional:** Proper RTL/LTR text mixing
+- **Bidirectional:** Proper RTL/LTR text mixing using `bidi-js`
 - **Real paths:** Actual bezier curves, not text elements
 - **Styling options:** Fill, stroke, size, spacing, direction
 - **Glyph accuracy:** Uses font metrics for proper spacing
@@ -98,7 +99,7 @@ Main conversion pipeline:
 
 ### 4. BiDi Library Loading
 **Cause:** External library blocked or unavailable  
-**Solution:** Falls back to SimpleBiDi implementation
+**Solution:** Ensure `bidi-js` is loaded from a reliable CDN or bundle it locally
 
 ## Font Requirements for International Text
 
@@ -108,10 +109,10 @@ Main conversion pipeline:
 
 ## Advanced Usage
 
-### Custom BiDi Implementation
-For production use, consider integrating the full Unicode Bidirectional Algorithm:
-- **bidi-js**: npm install bidi-js
-- **unicode-bidirectional**: Full UAX#9 implementation
+### Bidirectional Text Handling
+For robust bidirectional text support, this tool uses the full Unicode Bidirectional Algorithm via the `bidi-js` library:
+- **bidi-js**: npm install bidi-js or use CDN
+- See: https://github.com/robertfisk/bidi-js
 
 ### Performance Optimization
 - Cache parsed fonts in memory
@@ -128,6 +129,7 @@ For production use, consider integrating the full Unicode Bidirectional Algorith
 ## License Considerations
 - **OpenType.js**: MIT License
 - **D3.js**: ISC License
+- **bidi-js**: MIT License
 - **ArialWeb**: Ensure you have the right to distribute/use the font for your application
 - Generated SVG paths are derivative works of the font
 - Check font licenses for commercial use
@@ -140,9 +142,10 @@ For production use, consider integrating the full Unicode Bidirectional Algorith
 - `copySVGCode()` - Copy to clipboard
 - `downloadSVG()` - Save as file
 
-### SimpleBiDi API
-- `SimpleBiDi.isRTL(char)` - Check if character is RTL
-- `SimpleBiDi.process(text, direction)` - Process bidirectional text
+### BiDi API (bidi-js)
+- `bidi.getEmbeddingLevels(text, direction)` - Get embedding levels for text
+- `bidi.reorderVisually(levels, text)` - Reorder text visually for rendering
+- See the [bidi-js documentation](https://github.com/robertfisk/bidi-js) for full API details
 
 ### OpenType.js Key Methods
 - `opentype.parse(buffer)` - Parse font file
