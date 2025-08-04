@@ -4,9 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Text to SVG Path Converter</title>
-  <link rel="stylesheet" href="arial-webfont.woff">
   <style>
-    body { font-family: Arial, sans-serif; background: #fafbfa; margin: 0; }
+    body { font-family: 'NotoSans', sans-serif; background: #fafbfa; margin: 0; }
     .container { max-width: 900px; margin: 0 auto; padding: 24px; }
     h1 { text-align: center; margin-top: 24px; }
     h2 { text-align: center; color: #555; font-weight: 400; margin-top: 0; }
@@ -22,18 +21,28 @@
     .svg-preview-area svg { display: block; margin: 0 auto; background: #fff; }
   </style>
   <style>
+    /* Combined NotoSans font family with Latin and Hebrew support */
     @font-face {
-      font-family: 'ArialWeb';
-      src: url('arial-webfont.woff') format('woff');
-      font-weight: normal;
+      font-family: 'NotoSans';
+      src: url('fonts/NotoSans-Regular.woff') format('woff');
+      font-weight: 400;
       font-style: normal;
+      unicode-range: U+0000-052F, U+1E00-1FFF, U+2020-20CF, U+2100-214F, U+2190-21FF, U+FB00-FB4F;
+    }
+    
+    @font-face {
+      font-family: 'NotoSans';
+      src: url('fonts/NotoSansHebrew-Regular.woff') format('woff');
+      font-weight: 400;
+      font-style: normal;
+      unicode-range: U+0590-05FF, U+FB1D-FB4F;
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Text to SVG Path Converter</h1>
-    <h2>Convert text to actual SVG paths using OpenType.js and Arial Web Font</h2>
+    <h2>Convert text to actual SVG paths using OpenType.js and NotoSans Web Font</h2>
     <form class="controls" id="controls" onsubmit="return false;">
       <div class="control-group">
         <label for="text-input">Text:</label>
@@ -91,6 +100,17 @@
   <script src="lib/bidi.min.js"></script>
   <script src="lib/hb.js"></script>   <!-- HarfBuzz Module -->
   <script src="lib/hbjs.js"></script> <!-- HarfBuzz Wrapper -->
+  <script type="module">
+    // Import and make UniversalTextShaper available globally
+    import { UniversalTextShaper, shapeText, createTextSVG } from './universal_text_shaper.js';
+    
+    window.UniversalTextShaper = UniversalTextShaper;
+    window.shapeText = shapeText;
+    window.createTextSVG = createTextSVG;
+    
+    // Dispatch event when UniversalTextShaper is ready
+    window.dispatchEvent(new CustomEvent('universalTextShaperReady'));
+  </script>
   <script src="text-to-path-converter.js"></script>
 </body>
 </html> 

@@ -7,14 +7,15 @@ This is a web-based tool that converts text into SVG paths using actual font out
 - **OpenType.js** (v1.3.4) - Parses font files and extracts glyph outlines as bezier curves
 - **D3.js** (v7.8.5) - Handles SVG DOM manipulation and calculations
 - **bidi-js** - Full Unicode Bidirectional Algorithm (UAX#9) for robust RTL/LTR text support
-- **Webfont Integration** - Uses a bundled WOFF font (ArialWeb) for both SVG path and text rendering
+- **Webfont Integration** - Uses bundled WOFF fonts (NotoSans with Latin and Hebrew support) for both SVG path and text rendering
 
 ## Key Components
 
 ### 1. Webfont Loading System
-- The app now uses a bundled webfont (`arial-webfont.woff`) loaded via `@font-face` in CSS.
-- No font upload UI is present; the font is loaded automatically on page load.
-- Both SVG path generation and SVG `<text>` rendering use this webfont for consistency and browser-agnostic output.
+- The app now uses bundled webfonts (`notosans-variablefont_wdthwght-webfont.woff` and `notosanshebrew-variablefont_wdthwght-webfont.woff`) loaded via `@font-face` in CSS.
+- Combined as a single "NotoSans" font family with unicode-range declarations for automatic script selection.
+- No font upload UI is present; fonts are loaded automatically on page load.
+- Both SVG path generation and SVG `<text>` rendering use these webfonts for consistency and browser-agnostic output.
 
 ### 2. SVG Physical Units for Laser Cutting
 - The SVG output uses `width` and `height` in **mm** (e.g., `width="1000mm" height="300mm"`).
@@ -59,16 +60,28 @@ Main conversion pipeline:
 <script src="https://cdnjs.cloudflare.com/ajax/libs/opentype.js/1.3.4/opentype.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bidi-js@1.1.2/dist/bidi.min.js"></script>
-<link rel="stylesheet" href="arial-webfont.woff">
+<!-- Fonts are loaded via @font-face in CSS -->
 ```
 
 ### Webfont Setup
 ```css
+/* Combined NotoSans font family with Latin and Hebrew support */
 @font-face {
-  font-family: 'ArialWeb';
-  src: url('arial-webfont.woff') format('woff');
-  font-weight: normal;
+  font-family: 'NotoSans';
+  src: url('fonts/notosans-variablefont_wdthwght-webfont.woff') format('woff');
+  font-weight: 100 900;
+  font-stretch: 62.5% 100%;
   font-style: normal;
+  unicode-range: U+0000-052F, U+1E00-1FFF, U+2020-20CF, U+2100-214F, U+2190-21FF, U+FB00-FB4F;
+}
+
+@font-face {
+  font-family: 'NotoSans';
+  src: url('fonts/notosanshebrew-variablefont_wdthwght-webfont.woff') format('woff');
+  font-weight: 100 900;
+  font-stretch: 62.5% 100%;
+  font-style: normal;
+  unicode-range: U+0590-05FF, U+FB1D-FB4F;
 }
 ```
 
@@ -83,9 +96,9 @@ Main conversion pipeline:
 **Text Characters Mode:**
 ```xml
 <svg width="1000mm" height="300mm" viewBox="0 0 1000 300">
-  <text x="0" y="36" font-family="ArialWeb" font-size="30" fill="#333" stroke="#000" stroke-width="0.5">H</text>
-  <text x="18.5" y="36" font-family="ArialWeb" font-size="30" fill="#333" stroke="#000" stroke-width="0.5">e</text>
-  <text x="35.2" y="36" font-family="ArialWeb" font-size="30" fill="#333" stroke="#000" stroke-width="0.5">l</text>
+  <text x="0" y="36" font-family="NotoSans" font-size="30" fill="#333" stroke="#000" stroke-width="0.5">H</text>
+  <text x="18.5" y="36" font-family="NotoSans" font-size="30" fill="#333" stroke="#000" stroke-width="0.5">e</text>
+  <text x="35.2" y="36" font-family="NotoSans" font-size="30" fill="#333" stroke="#000" stroke-width="0.5">l</text>
   <!-- ... individual characters at precise positions ... -->
 </svg>
 ```
@@ -105,7 +118,7 @@ Main conversion pipeline:
 
 ### 1. Rectangles Instead of Text
 **Cause:** Font file lacks outline data or is bitmap font  
-**Solution:** Use proper TrueType/OpenType fonts with outline data (the bundled ArialWeb is suitable)
+**Solution:** Use proper TrueType/OpenType fonts with outline data (the bundled NotoSans fonts are suitable)
 
 ### 2. Missing Characters
 **Cause:** Font doesn't include glyphs for those Unicode points  
@@ -122,8 +135,9 @@ Main conversion pipeline:
 ## Font Requirements for International Text
 
 ### Hebrew/Arabic Support
-- Use a webfont with the required Unicode coverage
-- The bundled ArialWeb covers basic Latin and some international scripts
+- Use webfonts with the required Unicode coverage
+- The bundled NotoSans covers Latin scripts, and NotoSansHebrew covers Hebrew text
+- Unicode-range declarations automatically select the appropriate font for each character
 
 ## Advanced Usage
 
@@ -148,7 +162,7 @@ For robust bidirectional text support, this tool uses the full Unicode Bidirecti
 - **OpenType.js**: MIT License
 - **D3.js**: ISC License
 - **bidi-js**: MIT License
-- **ArialWeb**: Ensure you have the right to distribute/use the font for your application
+- **NotoSans**: Google Noto fonts are open source (SIL Open Font License)
 - Generated SVG paths are derivative works of the font
 - Check font licenses for commercial use
 

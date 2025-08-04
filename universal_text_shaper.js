@@ -1,4 +1,4 @@
-import bidi from 'bidi-js';
+// bidi-js is loaded globally via script tag
 
 /**
  * Universal text shaper using the actual HarfBuzz.js API
@@ -130,13 +130,34 @@ class UniversalTextShaper {
     applyBidi(text, paragraphDirection) {
         if (paragraphDirection === 'ltr') {
             return text;
-        } else if (paragraphDirection === 'rtl') {
-            const result = bidi(text, { dir: 'rtl' });
-            return result.str;
+        }
+        
+        // Use global bidi_js if available
+        if (typeof bidi_js !== 'undefined') {
+            try {
+                const bidiProcessor = bidi_js();
+                const direction = paragraphDirection === 'rtl' ? 'rtl' : 'auto';
+                
+                // Get embedding levels and reorder segments
+                const embeddingLevels = bidiProcessor.getEmbeddingLevels(text, direction);
+                const reorderSegments = bidiProcessor.getReorderSegments(text, embeddingLevels);
+                
+                // Create visual order mapping
+                let visualOrder = Array.from({length: text.length}, (_, i) => i);
+                reorderSegments.forEach(([start, end]) => {
+                    const segment = visualOrder.slice(start, end + 1).reverse();
+                    visualOrder.splice(start, end - start + 1, ...segment);
+                });
+                
+                // Create visual text
+                return visualOrder.map(i => text[i]).join('');
+            } catch (error) {
+                console.warn('Bidi processing failed:', error);
+                return text;
+            }
         } else {
-            // Auto-detect
-            const result = bidi(text, { dir: 'auto' });
-            return result.str;
+            console.warn('bidi_js not available, returning original text');
+            return text;
         }
     }
 
@@ -153,26 +174,59 @@ class UniversalTextShaper {
         }
 
         // Create HarfBuzz objects
+        console.log(`Creating HarfBuzz objects with font data size: ${fontData.byteLength}`);
         const blob = this.hb.createBlob(fontData);
+        console.log('Blob created:', blob);
         const face = this.hb.createFace(blob, 0);
+        console.log('Face created, upem:', face.upem);
         const font = this.hb.createFont(face);
+        console.log('Font created, available methods:', Object.getOwnPropertyNames(font));
         
-        // Set font scale (convert fontSize to font units)
-        const scale = fontSize / face.upem * 1000; // Approximate scaling
+        // Set font scale properly (use face.upem for HarfBuzz, fontSize is applied later)
+        const scale = face.upem; // Use units per em for HarfBuzz
         font.setScale(scale, scale);
+        console.log('Font scale set to face.upem:', scale, 'fontSize will be applied later:', fontSize);
+        
+        // Test if font has basic glyphs (temporarily disabled while debugging API)
+        /*
+        try {
+            const testPath = font.glyphToPath(0); // Test .notdef glyph
+            console.log('Glyph 0 (.notdef) path:', testPath);
+            
+            // Try to find glyph for 'h' character (unicode 104)
+            for (let glyphId = 1; glyphId <= 100; glyphId++) {
+                const testGlyphPath = font.glyphToPath(glyphId);
+                if (testGlyphPath && testGlyphPath.length > 0) {
+                    console.log(`Found non-empty glyph at ID ${glyphId}: ${testGlyphPath.substring(0, 50)}...`);
+                    break;
+                }
+            }
+        } catch (error) {
+            console.error('Error testing glyph paths:', error);
+        }
+        */
         
         // Create buffer and add text
         const buffer = this.hb.createBuffer();
+        console.log('Adding text to buffer:', text);
         buffer.addText(text);
         
-        // Let HarfBuzz auto-detect script, language, and direction
+        // Set buffer properties explicitly
+        buffer.setDirection(4); // HB_DIRECTION_LTR = 4
+        buffer.setScript(1214406446); // HB_SCRIPT_LATIN = 'Latn' as 4-byte tag
+        buffer.setLanguage('en'); // English
+        
+        // Also try auto-detection as fallback
         buffer.guessSegmentProperties();
+        console.log('Buffer properties set and guessed, available methods:', Object.getOwnPropertyNames(buffer));
         
         // Shape the text
+        console.log('Shaping text with features:', features);
         this.hb.shape(font, buffer, features);
         
         // Get shaped results
         const shapedGlyphs = buffer.json();
+        console.log('Raw shaped glyphs:', shapedGlyphs);
         
         // Generate paths if requested
         const glyphs = shapedGlyphs.map(glyph => {
@@ -187,8 +241,28 @@ class UniversalTextShaper {
             };
             
             if (returnPaths) {
-                result.path = font.glyphToPath(glyph.g);
-                result.pathJson = font.glyphToJson(glyph.g);
+                console.log(`Attempting to get path for glyph ${glyph.g}`);
+                try {
+                    result.path = font.glyphToPath(glyph.g);
+                    result.pathJson = font.glyphToJson(glyph.g);
+                    console.log(`Glyph ${glyph.g}: path="${result.path}", pathJson:`, result.pathJson);
+                    
+                    // If glyph 0 (missing glyph), let's try to debug what's available
+                    if (glyph.g === 0) {
+                        console.log('Glyph 0 detected - this is the missing glyph (.notdef)');
+                        // Try to get glyph name to see what character this should be
+                        try {
+                            const glyphName = font.glyphName(glyph.g);
+                            console.log(`Glyph name for ${glyph.g}:`, glyphName);
+                        } catch (e) {
+                            console.log('Cannot get glyph name');
+                        }
+                    }
+                } catch (error) {
+                    console.error(`Error getting path for glyph ${glyph.g}:`, error);
+                    result.path = '';
+                    result.pathJson = [];
+                }
             }
             
             return result;
@@ -206,7 +280,7 @@ class UniversalTextShaper {
         return {
             text,
             glyphs,
-            width: totalWidth * fontSize / 1000, // Convert back to actual units
+            width: totalWidth * fontSize / face.upem, // Convert to actual units
             height: fontSize,
             x,
             y
@@ -238,12 +312,16 @@ class UniversalTextShaper {
         
         shapedLines.forEach(line => {
             let currentX = line.x;
+            console.log(`Processing line: x=${line.x}, y=${line.y}, glyphs:`, line.glyphs.length);
             
             line.glyphs.forEach(glyph => {
+                console.log(`Processing glyph: id=${glyph.glyphId}, hasPath=${!!glyph.path}, path="${glyph.path}"`);
                 if (glyph.path) {
                     // Calculate final position
                     const finalX = currentX + glyph.offsetX;
                     const finalY = line.y - glyph.offsetY; // Flip Y coordinate
+                    
+                    console.log(`Adding SVG element at (${finalX}, ${finalY})`);
                     
                     // Create SVG group with transform instead of modifying path
                     svgElements.push({
@@ -265,6 +343,8 @@ class UniversalTextShaper {
             });
         });
         
+        console.log(`Total SVG elements created: ${svgElements.length}`);
+        
         return {
             text: processedText,
             direction,
@@ -277,6 +357,68 @@ class UniversalTextShaper {
     }
 
     /**
+     * Calculate actual visual bounds from glyph metrics
+     */
+    calculateActualBounds(shapingResult) {
+        if (!shapingResult.glyphs || shapingResult.glyphs.length === 0) {
+            return {
+                x: 0, y: 0, width: 0, height: 0,
+                minX: 0, maxX: 0, minY: 0, maxY: 0
+            };
+        }
+
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        
+        // For each line, we need to recalculate with font metrics
+        shapingResult.lines.forEach(line => {
+            let currentX = line.x;
+            
+            line.glyphs.forEach(glyph => {
+                // Use pathJson to get glyph bounds if available
+                if (glyph.pathJson && glyph.pathJson.xMin !== undefined) {
+                    const glyphMinX = currentX + glyph.offsetX + glyph.pathJson.xMin;
+                    const glyphMaxX = currentX + glyph.offsetX + glyph.pathJson.xMax;
+                    const glyphMinY = line.y - glyph.offsetY - glyph.pathJson.yMax; // Flip Y
+                    const glyphMaxY = line.y - glyph.offsetY - glyph.pathJson.yMin; // Flip Y
+                    
+                    minX = Math.min(minX, glyphMinX);
+                    maxX = Math.max(maxX, glyphMaxX);
+                    minY = Math.min(minY, glyphMinY);
+                    maxY = Math.max(maxY, glyphMaxY);
+                } else {
+                    // Fallback: use advance width and font size estimates
+                    const glyphX = currentX + glyph.offsetX;
+                    const glyphY = line.y - glyph.offsetY;
+                    
+                    minX = Math.min(minX, glyphX);
+                    maxX = Math.max(maxX, glyphX + glyph.advanceX);
+                    minY = Math.min(minY, glyphY - line.height * 0.8); // Estimate ascent
+                    maxY = Math.max(maxY, glyphY + line.height * 0.2); // Estimate descent
+                }
+                
+                currentX += glyph.advanceX;
+            });
+        });
+        
+        // Handle edge case where no valid bounds were found
+        if (minX === Infinity) {
+            return {
+                x: 0, y: 0, width: shapingResult.totalWidth, height: shapingResult.totalHeight,
+                minX: 0, maxX: shapingResult.totalWidth, minY: 0, maxY: shapingResult.totalHeight
+            };
+        }
+        
+        return {
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY,
+            minX, maxX, minY, maxY
+        };
+    }
+
+    /**
      * Create a complete SVG element
      */
     createSVG(shapingResult, options = {}) {
@@ -285,7 +427,8 @@ class UniversalTextShaper {
             height = shapingResult.totalHeight,
             viewBox = null,
             fill = 'black',
-            fontSize = 72
+            fontSize = 72,
+            returnBounds = false
         } = options;
 
         const actualViewBox = viewBox || `0 0 ${width} ${height}`;
@@ -295,9 +438,42 @@ class UniversalTextShaper {
             `<g transform="${element.transform}"><path d="${element.path}" fill="${fill}"/></g>`
         ).join('\n    ');
         
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${actualViewBox}">
+        const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${actualViewBox}">
     ${glyphElements}
 </svg>`;
+
+        if (returnBounds) {
+            const actualBounds = this.calculateActualBounds(shapingResult);
+            
+            return {
+                svg: svgString,
+                bounds: {
+                    // Typographic dimensions (layout-based)
+                    typographicWidth: shapingResult.totalWidth,
+                    typographicHeight: shapingResult.totalHeight,
+                    
+                    // Visual dimensions (ink-based)
+                    actualWidth: actualBounds.width,
+                    actualHeight: actualBounds.height,
+                    actualX: actualBounds.x,
+                    actualY: actualBounds.y,
+                    
+                    // Canvas dimensions
+                    canvasWidth: width,
+                    canvasHeight: height,
+                    
+                    // Detailed bounds
+                    visualBounds: {
+                        left: actualBounds.minX,
+                        right: actualBounds.maxX,
+                        top: actualBounds.minY,
+                        bottom: actualBounds.maxY
+                    }
+                }
+            };
+        }
+        
+        return svgString;
     }
 
     /**
@@ -308,7 +484,8 @@ class UniversalTextShaper {
             width = shapingResult.totalWidth,
             height = shapingResult.totalHeight,
             viewBox = null,
-            fill = 'black'
+            fill = 'black',
+            returnBounds = false
         } = options;
 
         const actualViewBox = viewBox || `0 0 ${width} ${height}`;
@@ -318,9 +495,42 @@ class UniversalTextShaper {
             return this.applyTransformToPath(element.path, element.x, element.y);
         }).join('\n    ');
         
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${actualViewBox}">
+        const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="${actualViewBox}">
     ${combinedElements}
 </svg>`;
+
+        if (returnBounds) {
+            const actualBounds = this.calculateActualBounds(shapingResult);
+            
+            return {
+                svg: svgString,
+                bounds: {
+                    // Typographic dimensions (layout-based)
+                    typographicWidth: shapingResult.totalWidth,
+                    typographicHeight: shapingResult.totalHeight,
+                    
+                    // Visual dimensions (ink-based)
+                    actualWidth: actualBounds.width,
+                    actualHeight: actualBounds.height,
+                    actualX: actualBounds.x,
+                    actualY: actualBounds.y,
+                    
+                    // Canvas dimensions
+                    canvasWidth: width,
+                    canvasHeight: height,
+                    
+                    // Detailed bounds
+                    visualBounds: {
+                        left: actualBounds.minX,
+                        right: actualBounds.maxX,
+                        top: actualBounds.minY,
+                        bottom: actualBounds.maxY
+                    }
+                }
+            };
+        }
+        
+        return svgString;
     }
 
     /**
@@ -416,6 +626,7 @@ async function examples() {
     return quickResult;
 }
 
+// Export for ES6 modules
 export { 
     UniversalTextShaper, 
     shapeText, 
