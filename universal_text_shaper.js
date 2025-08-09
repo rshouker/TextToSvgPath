@@ -594,7 +594,11 @@ async function examples() {
     const shaper = new UniversalTextShaper();
     await shaper.initialize();
     
-    const fontBuffer = await UniversalTextShaper.createFontBuffer('/fonts/NotoSans-Regular.ttf');
+    const primaryUrl = (typeof window !== 'undefined' && window.AppFonts && window.AppFonts.primaryUrl) ? window.AppFonts.primaryUrl : null;
+    if (!primaryUrl) {
+        throw new Error('No primary font URL configured in window.AppFonts.primaryUrl');
+    }
+    const fontBuffer = await UniversalTextShaper.createFontBuffer(primaryUrl);
     shaper.loadFont(fontBuffer, 'default', true);
     
     const result = shaper.shapeText('Hello مرحبا नमस्ते', {
@@ -606,8 +610,9 @@ async function examples() {
     console.log('Text direction:', result.direction);
     
     // Example 2: Multi-script with different fonts
-    const arabicFont = await UniversalTextShaper.createFontBuffer('/fonts/NotoSansArabic-Regular.ttf');
-    shaper.loadFont(arabicFont, 'arabic');
+    // Optional example font for other scripts can be configured similarly if available
+    // const arabicFont = await UniversalTextShaper.createFontBuffer('/fonts/YourArabicFont.woff');
+    // shaper.loadFont(arabicFont, 'arabic');
     
     // Example 3: Create SVG
     const svg = shaper.createSVG(result, {

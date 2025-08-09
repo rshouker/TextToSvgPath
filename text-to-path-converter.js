@@ -6,31 +6,37 @@ let bidiProcessor = null;
 let harfBuzzModule = null;
 let hb = null;
 let universalShaper = null;
-const fontUrl = 'fonts/NotoSans-Regular.woff';
-const hebrewFontUrl = 'fonts/NotoSansHebrew-Regular.woff';
+const fontUrl = (window.AppFonts && window.AppFonts.primaryUrl) ? window.AppFonts.primaryUrl : null;
+const hebrewFontUrl = (window.AppFonts && window.AppFonts.hebrewUrl) ? window.AppFonts.hebrewUrl : null;
 
 // Load the fonts on page load
-opentype.load(fontUrl, function(err, loadedFont) {
-  if (err) {
-    console.error('Latin font could not be loaded:', err);
-    font = null;
-  } else {
-    font = loadedFont;
-    console.log('Latin font loaded successfully');
-  }
-});
+if (fontUrl) {
+  opentype.load(fontUrl, function(err, loadedFont) {
+    if (err) {
+      console.error('Primary font could not be loaded:', err);
+      font = null;
+    } else {
+      font = loadedFont;
+      console.log('Primary font loaded successfully');
+    }
+  });
+} else {
+  console.warn('No primary font URL configured in window.AppFonts.primaryUrl');
+}
 
-opentype.load(hebrewFontUrl, function(err, loadedFont) {
-  if (err) {
-    console.error('Hebrew font could not be loaded:', err);
-    hebrewFont = null;
-  } else {
-    hebrewFont = loadedFont;
-    console.log('Hebrew font loaded successfully');
-    console.log('Hebrew font unitsPerEm:', loadedFont.unitsPerEm);
-    console.log('Latin font unitsPerEm:', font ? font.unitsPerEm : 'not loaded yet');
-  }
-});
+if (hebrewFontUrl) {
+  opentype.load(hebrewFontUrl, function(err, loadedFont) {
+    if (err) {
+      console.error('Hebrew font could not be loaded:', err);
+      hebrewFont = null;
+    } else {
+      hebrewFont = loadedFont;
+      console.log('Hebrew font loaded successfully');
+      console.log('Hebrew font unitsPerEm:', loadedFont.unitsPerEm);
+      console.log('Latin font unitsPerEm:', font ? font.unitsPerEm : 'not loaded yet');
+    }
+  });
+}
 
 // Initialize bidi processor when page loads
 window.addEventListener('load', function() {
@@ -77,15 +83,29 @@ async function initializeUniversalShaper() {
     
     // Load both fonts
     console.log('Loading fonts for UniversalTextShaper...');
-    const latinFontBuffer = await UniversalTextShaper.createFontBuffer('fonts/notosans-variablefont_wdthwght-webfont.woff');
-    console.log('Latin font loaded, size:', latinFontBuffer.byteLength);
+  const primaryUrlForShaper = (window.AppFonts && window.AppFonts.primaryUrl) ? window.AppFonts.primaryUrl : null;
+  let latinFontBuffer = null;
+  if (primaryUrlForShaper) {
+    latinFontBuffer = await UniversalTextShaper.createFontBuffer(primaryUrlForShaper);
+    console.log('Primary font loaded for shaper, size:', latinFontBuffer.byteLength);
+  } else {
+    console.warn('No primary font URL configured for shaper');
+  }
     
-    const hebrewFontBuffer = await UniversalTextShaper.createFontBuffer('fonts/notosanshebrew-variablefont_wdthwght-webfont.woff');
-    console.log('Hebrew font loaded, size:', hebrewFontBuffer.byteLength);
-    
-    universalShaper.loadFont(latinFontBuffer, 'latin', true); // Set as default
-    universalShaper.loadFont(hebrewFontBuffer, 'hebrew', false);
-    console.log('Both fonts loaded into UniversalTextShaper');
+  if (latinFontBuffer) {
+    if (window.AppFonts && window.AppFonts.hebrewUrl) {
+      const hebrewFontBuffer = await UniversalTextShaper.createFontBuffer(window.AppFonts.hebrewUrl);
+      console.log('Hebrew font loaded for shaper, size:', hebrewFontBuffer.byteLength);
+      universalShaper.loadFont(latinFontBuffer, 'latin', true); // Set as default
+      universalShaper.loadFont(hebrewFontBuffer, 'hebrew', false);
+      console.log('Primary and Hebrew fonts loaded into UniversalTextShaper');
+    } else {
+      universalShaper.loadFont(latinFontBuffer, 'latin', true); // Set as default
+      console.log('Primary font loaded into UniversalTextShaper');
+    }
+  } else {
+    console.warn('UniversalTextShaper initialized without fonts');
+  }
     
     console.log('UniversalTextShaper initialized successfully with both fonts');
   } catch (error) {
@@ -138,7 +158,7 @@ function calculateCharacterPositions(text, visualOrder, fontSize, letterSpacing)
   for (let i = 0; i < visualOrder.length; i++) {
     const charIndex = visualOrder[i];
     const char = text[charIndex];
-    const glyph = font.charToGlyph(char);
+      const glyph = font.charToGlyph(char);
     const glyphWidth = glyph.advanceWidth * (fontSize / font.unitsPerEm);
     
     positions.push({
@@ -172,7 +192,8 @@ function renderTextCharacters(positions, settings) {
   let textElements = '';
   
   for (const pos of positions) {
-    textElements += `<text x="${pos.x}" y="${pos.y}" font-family="NotoSans" font-size="${settings.fontSize}" fill="${settings.fillColor}" stroke="${settings.strokeColor}" stroke-width="${settings.strokeWidth}">${pos.char}</text>`;
+    const family = (window.AppFonts && window.AppFonts.fontFamily) ? window.AppFonts.fontFamily : 'OpenSans';
+    textElements += `<text x="${pos.x}" y="${pos.y}" font-family="${family}" font-size="${settings.fontSize}" fill="${settings.fillColor}" stroke="${settings.strokeColor}" stroke-width="${settings.strokeWidth}">${pos.char}</text>`;
   }
   
   return textElements;
@@ -181,21 +202,24 @@ function renderTextCharacters(positions, settings) {
 function renderEntireText(settings) {
   const direction = settings.direction === 'rtl' ? 'rtl' : 'ltr';
   
-  return `<text x="50%" y="${settings.fontSize * 1.2}" font-family="NotoSans" font-size="${settings.fontSize}" fill="${settings.fillColor}" stroke="${settings.strokeColor}" stroke-width="${settings.strokeWidth}" direction="${direction}" text-anchor="middle" style="direction: ${direction};">${settings.text}</text>`;
+  const family = (window.AppFonts && window.AppFonts.fontFamily) ? window.AppFonts.fontFamily : 'OpenSans';
+  return `<text x="50%" y="${settings.fontSize * 1.2}" font-family="${family}" font-size="${settings.fontSize}" fill="${settings.fillColor}" stroke="${settings.strokeColor}" stroke-width="${settings.strokeWidth}" direction="${direction}" text-anchor="middle" style="direction: ${direction};">${settings.text}</text>`;
 }
 
 async function renderHarfBuzzSVGPath(settings) {
   console.log('renderHarfBuzzSVGPath called with:', settings);
   if (!universalShaper) {
     console.log('UniversalTextShaper not initialized');
-    return `<text x="50%" y="50%" font-family="NotoSans" font-size="${settings.fontSize}" fill="#999" text-anchor="middle" style="font-style: italic;">UniversalTextShaper not initialized</text>`;
+    const family = (window.AppFonts && window.AppFonts.fontFamily) ? window.AppFonts.fontFamily : 'OpenSans';
+    return `<text x="50%" y="50%" font-family="${family}" font-size="${settings.fontSize}" fill="#999" text-anchor="middle" style="font-style: italic;">UniversalTextShaper not initialized</text>`;
   }
   
   try {
     // Check if text is empty
     if (!settings.text || settings.text.trim() === '') {
       console.log('Text is empty, returning placeholder');
-      return `<text x="50%" y="50%" font-family="NotoSans" font-size="${settings.fontSize}" fill="#999" text-anchor="middle" style="font-style: italic;">Enter text to see HarfBuzz output</text>`;
+      const family = (window.AppFonts && window.AppFonts.fontFamily) ? window.AppFonts.fontFamily : 'OpenSans';
+      return `<text x="50%" y="50%" font-family="${family}" font-size="${settings.fontSize}" fill="#999" text-anchor="middle" style="font-style: italic;">Enter text to see HarfBuzz output</text>`;
     }
     
     // Determine paragraph direction
@@ -217,9 +241,35 @@ async function renderHarfBuzzSVGPath(settings) {
     const textProcessingResult = processTextForBidi(settings.text, settings.direction);
     
     // Create paths using visual order and appropriate fonts
-    const x = 10;
-    const y = settings.fontSize * 0.8;
-    let currentX = x;
+    // Calculate text width first to center it
+    let totalTextWidth = 0;
+    for (let i = 0; i < textProcessingResult.visualOrder.length; i++) {
+      const charIndex = textProcessingResult.visualOrder[i];
+      const char = settings.text[charIndex];
+      
+      let currentFont = font;
+      const isHebrew = /[\u0590-\u05FF]/.test(char);
+      if (isHebrew && hebrewFont) {
+        currentFont = hebrewFont;
+      }
+      
+      if (currentFont) {
+        const glyph = currentFont.charToGlyph(char);
+        const advance = glyph.advanceWidth * (settings.fontSize / currentFont.unitsPerEm);
+        totalTextWidth += advance;
+      } else {
+        totalTextWidth += settings.fontSize * 0.6; // Fallback width
+      }
+    }
+    
+    // Center the text horizontally using the caller-provided canvas width when available
+    const canvasWidth = (typeof settings._canvasWidthForCentering === 'number')
+      ? settings._canvasWidthForCentering
+      : Math.max(totalTextWidth + 20, 200);
+    const startX = (canvasWidth - totalTextWidth) / 2;
+    // Use the same baseline as the 'entire' text mode
+    const y = settings.fontSize * 1.2;
+    let currentX = startX;
     const glyphElements = [];
     
     for (let i = 0; i < textProcessingResult.visualOrder.length; i++) {
@@ -259,7 +309,8 @@ async function renderHarfBuzzSVGPath(settings) {
     
   } catch (error) {
     console.error('HarfBuzz rendering error:', error);
-    return `<text x="50%" y="50%" font-family="NotoSans" font-size="${settings.fontSize}" fill="#f44" text-anchor="middle" style="font-style: italic;">HarfBuzz Error: ${error.message}</text>`;
+    const family = (window.AppFonts && window.AppFonts.fontFamily) ? window.AppFonts.fontFamily : 'OpenSans';
+    return `<text x="50%" y="50%" font-family="${family}" font-size="${settings.fontSize}" fill="#f44" text-anchor="middle" style="font-style: italic;">HarfBuzz Error: ${error.message}</text>`;
   }
 }
 
@@ -356,7 +407,8 @@ async function renderSVG() {
     // Handle HarfBuzz rendering separately due to async nature
     try {
       if (!universalShaper) {
-        svgContent = `<text x="50%" y="50%" font-family="NotoSans" font-size="${settings.fontSize}" fill="#999" text-anchor="middle" style="font-style: italic;">UniversalTextShaper not ready</text>`;
+       const family = (window.AppFonts && window.AppFonts.fontFamily) ? window.AppFonts.fontFamily : 'OpenSans';
+       svgContent = `<text x="50%" y="50%" font-family="${family}" font-size="${settings.fontSize}" fill="#999" text-anchor="middle" style="font-style: italic;">UniversalTextShaper not ready</text>`;
         totalWidth = 400;
         maxHeight = 100;
       } else {
@@ -376,15 +428,20 @@ async function renderSVG() {
         });
         
         totalWidth = Math.max(shapingResult.totalWidth + 20, 100); // Add padding
-        maxHeight = Math.max(shapingResult.totalHeight + 20, settings.fontSize * 1.5);
+        // Match the SVG height formula used by the 'entire' text mode to avoid vertical offset
+        maxHeight = settings.fontSize * 1.5;
         
+        // Pass canvas width so the HarfBuzz renderer can center without altering font size
+        settings._canvasWidthForCentering = totalWidth;
+
         console.log('Calling renderHarfBuzzSVGPath with settings:', settings);
         svgContent = await renderHarfBuzzSVGPath(settings);
         console.log('HarfBuzz SVG content:', svgContent);
       }
     } catch (error) {
       console.error('HarfBuzz error:', error);
-      svgContent = `<text x="50%" y="50%" font-family="NotoSans" font-size="${settings.fontSize}" fill="#f44" text-anchor="middle" style="font-style: italic;">Error: ${error.message}</text>`;
+      const family = (window.AppFonts && window.AppFonts.fontFamily) ? window.AppFonts.fontFamily : 'OpenSans';
+      svgContent = `<text x="50%" y="50%" font-family="${family}" font-size="${settings.fontSize}" fill="#f44" text-anchor="middle" style="font-style: italic;">Error: ${error.message}</text>`;
       totalWidth = 400;
       maxHeight = 100;
     }
@@ -420,3 +477,42 @@ async function renderSVG() {
 document.getElementById('render-btn').addEventListener('click', async () => {
   await renderSVG();
 }); 
+
+// Keep slider value labels in sync with the UI
+function updateSliderLabels() {
+  const fontSizeEl = document.getElementById('font-size');
+  const strokeWidthEl = document.getElementById('stroke-width');
+  const letterSpacingEl = document.getElementById('letter-spacing');
+  const fontSizeValEl = document.getElementById('font-size-value');
+  const strokeWidthValEl = document.getElementById('stroke-width-value');
+  const letterSpacingValEl = document.getElementById('letter-spacing-value');
+
+  if (fontSizeEl && fontSizeValEl) {
+    const v = parseFloat(fontSizeEl.value);
+    fontSizeValEl.textContent = `${v}px (${v}mm)`;
+  }
+  if (strokeWidthEl && strokeWidthValEl) {
+    const v = parseFloat(strokeWidthEl.value);
+    strokeWidthValEl.textContent = `${v}px (${v}mm)`;
+  }
+  if (letterSpacingEl && letterSpacingValEl) {
+    const v = parseFloat(letterSpacingEl.value);
+    letterSpacingValEl.textContent = `${v}`;
+  }
+}
+
+// (Removed measurement helper to avoid unintended offsets)
+
+window.addEventListener('load', () => {
+  // Initialize labels once
+  updateSliderLabels();
+
+  // Update labels live as sliders move
+  const fontSizeEl = document.getElementById('font-size');
+  const strokeWidthEl = document.getElementById('stroke-width');
+  const letterSpacingEl = document.getElementById('letter-spacing');
+
+  if (fontSizeEl) fontSizeEl.addEventListener('input', updateSliderLabels);
+  if (strokeWidthEl) strokeWidthEl.addEventListener('input', updateSliderLabels);
+  if (letterSpacingEl) letterSpacingEl.addEventListener('input', updateSliderLabels);
+});
